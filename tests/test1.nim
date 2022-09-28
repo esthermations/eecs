@@ -107,6 +107,8 @@ test "System Dependencies":
 
   ecs.runSystems()
 
+  echo "This test is EXPECTED TO FAIL"
+
   assert acc.get(e) == 1
   assert vel.get(e) == 1
   assert pos.get(e) == 1

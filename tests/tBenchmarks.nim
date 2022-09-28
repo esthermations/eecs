@@ -54,3 +54,19 @@ for e in manyManyEntities:
 
 timeIt "Do a whole bunch of acceleration and velocity updates":
   ecs.runSystems()
+
+var setOfAllEntities: EntitySet
+for e in EntityID.low .. EntityID.high:
+  setOfAllEntities.incl e
+
+timeIt "Split a huge set in 2":
+  let splitIn2 = setOfAllEntities.evenlyDivide[:2]
+  keep splitIn2
+
+timeIt "Split a huge set in 3":
+  let splitIn3 = setOfAllEntities.evenlyDivide[:3]
+  keep splitIn3
+
+timeIt "Split a huge set in 8":
+  let splitIn8 = setOfAllEntities.evenlyDivide[:8]
+  keep splitIn8

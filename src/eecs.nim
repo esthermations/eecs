@@ -100,6 +100,15 @@ proc addSystem*(
       compSet.incl q.id
     compSet
 
+func evenlyDivide*[denom: static[Positive]](ents: EntitySet): array[denom, EntitySet] =
+  let splitLen = ents.len div denom
+
+  var i = 0
+  for e in ents:
+    let outputSet = min(i div splitLen, denom - 1)
+    result[outputSet].incl e
+    i.inc
+
 proc runSystems*(ecs : ECS) =
   for k in ecs.getExtantSystems:
     ecs.kernels[k](ecs.getEntsForSystem k)
