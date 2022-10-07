@@ -102,9 +102,10 @@ test "System Dependencies":
   proc kUpdatePosition(ents: EntitySet) =
     for e in ents: pos.set e, (pos.get e) + (vel.get e)
 
-  ecs.addSystem(kUpdatePosition, @[Queryable(pos), vel])
-  ecs.addSystem(kUpdateVelocity, @[Queryable(vel), acc])
+  let posSys = ecs.addSystem(kUpdatePosition, @[Queryable(pos), vel])
+  let velSys = ecs.addSystem(kUpdateVelocity, @[Queryable(vel), acc])
 
+  ecs.addDependency(posSys, {velSys})
   ecs.runSystems()
 
   echo "This test is EXPECTED TO FAIL"
@@ -118,6 +119,28 @@ test "System Dependencies":
   # @TODO
 
 
+test "Kernels as actual kernels":
+  type
+    Position = array[3, float]
+    Velocity = array[3, float]
 
+  func kUpdateVelocity(p: Position, v: Velocity): Position =
+    static: assert Position.len == Velocity.len
+    for i in 0 .. p.len:
+      result[i] = p[i] + v[i]
+
+  var
+    ecs = new ECS
+    pos = ecs.newComponent[:Position]
+    vel = ecs.newComponent[:Velocity]
+
+  const ents = {EntityID(0), 1, 100, 50}
+
+  for e in ents:
+    pos.set e, [0.0, 0, 0]
+    vel.set e, [1.0, 1, 1]
+
+  proc marshal(e: EntityID) =
+    pos.set e, kUpdateVelocity(pos.get e, vel.get e)
 
 

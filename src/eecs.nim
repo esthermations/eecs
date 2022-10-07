@@ -55,10 +55,12 @@ func query*(comps: varargs[Queryable]): EntitySet =
 
 type
   SystemKernel* = proc(ents: EntitySet) {.closure.}
-  SystemID      = uint8
+  SystemID*     = uint8
+  SystemSet*    = set[SystemID]
 
   ECS* = ref object
     kernels : array[SystemID, SystemKernel]
+    after   : array[SystemID, SystemSet]
     compSets: array[SystemID, ComponentSet]
     comps   : array[ComponentID, Queryable]
 
@@ -84,21 +86,45 @@ proc getEntsForSystem(ecs: ECS, s: SystemID): EntitySet =
     queryables.add ecs.comps[c]
   return query(queryables)
 
-proc getExtantSystems(ecs : ECS): HSlice[SystemID, SystemID] =
-  SystemID(0) ..< ecs.nextSystem
+proc getExtantSystems(ecs: ECS): SystemSet =
+  for s in SystemID(0) ..< ecs.nextSystem:
+    result.incl s
 
 proc addSystem*(
   ecs   : var ECS,
   kernel: SystemKernel,
-  comps : seq[Queryable]
-) =
-  let k = returnAndIncr ecs.nextSystem
-  ecs.kernels[k] = kernel
-  ecs.compSets[k] = block:
+  comps : openArray[Queryable],
+  after : SystemSet = {}
+): SystemID {.discardable.} =
+  result = returnAndIncr ecs.nextSystem
+  ecs.after[result] = after
+  ecs.kernels[result] = kernel
+  ecs.compSets[result] = block:
     var compSet: ComponentSet
     for q in comps:
       compSet.incl q.id
     compSet
+
+
+proc addDependency*(ecs: ECS, s: SystemID, deps: SystemSet) =
+  ecs.after[s].incl deps
+
+proc runSystems*(ecs: ECS) =
+  var systemsToRun = ecs.getExtantSystems
+  var systemsAlreadyRun: SystemSet = {}
+
+  while systemsToRun != {}:
+    echo "Need to run: ", $systemsToRun
+    for k in systemsToRun:
+      if ecs.after[k] <= systemsAlreadyRun:
+        echo "Running  system ", $k
+        ecs.kernels[k](ecs.getEntsForSystem k)
+        systemsAlreadyRun.incl k
+        systemsToRun.excl k
+      else:
+        echo "Skipping system ", $k, " which depends on ", $ecs.after[k]
+
+  echo "Finished running systems!"
 
 func evenlyDivide*[denom: static[Positive]](ents: EntitySet): array[denom, EntitySet] =
   let splitLen = ents.len div denom
@@ -109,6 +135,3 @@ func evenlyDivide*[denom: static[Positive]](ents: EntitySet): array[denom, Entit
     result[outputSet].incl e
     i.inc
 
-proc runSystems*(ecs : ECS) =
-  for k in ecs.getExtantSystems:
-    ecs.kernels[k](ecs.getEntsForSystem k)
